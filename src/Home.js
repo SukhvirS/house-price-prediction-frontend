@@ -1,8 +1,7 @@
 import React from 'react';
 import MyNavbar from './MyNavbar';
-import {Map, GeoJSON, TileLayer, LayersControl} from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import states from './states.json';
+import BackgroundImage from './images/house.jpg';
+import StateSelector from './StateSelector';
 
 class Home extends React.Component{
 
@@ -10,112 +9,175 @@ class Home extends React.Component{
         super(props);
 
         this.state = {
-            currentState: null,
             latitude: 37.334665328,
-            longitude: -121.875329832,
+            longitude:  -121.875329832,
+            currentState: 'CA',
+            currentCity: 'San Jose',
+            bedrooms: 3,
+            bathrooms: 2,
+            sqft: 1200,
+            prediction: null,
+
         }
 
-        this.onStateClick = this.onStateClick.bind(this);
-        this.onEachState= this.onEachState.bind(this);
-        this.onStateMouseover = this.onStateMouseover.bind(this);
-        this.onStateMouseout = this.onStateMouseout.bind(this);
+        // this.getLocation = this.getLocation.bind(this);
+        this.getCoordinates = this.getCoordinates.bind(this);
+        this.getPrediction = this.getPrediction.bind(this);
+        this.changeState = this.changeState.bind(this);
 
     }
 
-    onStateClick(event){
+    componentDidMount(){
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(this.getCoordinates);
+        } else {
+            alert("Geolocation is not supported by this browser.");
+        }
+
+        // var accessToken = 'pk.9707befe103af84b15cd102037a4e0fe';
+        // var url = 'https://us1.locationiq.com/v1/reverse.php?key='+accessToken+'&lat='+this.state.latitude+'&lon=-'+this.state.longitude+'&format=json';
+        
+    }
+
+    getCoordinates(position){
         this.setState({
-            currentState: event.target.feature.properties.NAME,
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+        })
+        var url = 'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude='+this.state.latitude+'&longitude='+this.state.longitude+'&localityLanguage=en'
+        fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            console.log(data);
+            this.setState({
+                currentCity: data['locality'],
+                currentState: data['principalSubdivision'],
+            })
         })
     }
 
-    onStateMouseover(event){
-        event.target.setStyle({
-            fillOpacity: 0.9,
-        });
+    changeState(childData){
+        this.setState({
+            state: childData,
+        })
     }
 
-    onStateMouseout(event){
-        event.target.setStyle({
-            fillOpacity: 0,
-        });
+    getPrediction(event){
+        event.preventDefault();
+
+        var bedroomInput = document.getElementById('bedroomInput').value;
+        var bathroomInput = document.getElementById('bathroomInput').value;
+        var cityInput = document.getElementById('cityInput').value;
+        var sqftInput = document.getElementById('sqftInput').value;
+
+        this.setState({
+            bedrooms: bedroomInput,
+            bathrooms: bathroomInput,
+            city: cityInput,
+            sqft: sqftInput
+        })
+
+
+        fetch('/getPrediction', {
+            method: "POST",
+            body: JSON.stringify({
+                state: this.state.currentState,
+                city: cityInput,
+                bedrooms: bedroomInput,
+                bathrooms: bathroomInput,
+                sqft: sqftInput,
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            var x = data
+            this.setState({
+                prediction: '$' + x['prediction'],
+            })
+        })
     }
 
-    onEachState(state, layer){
-        var stateName = state.properties.NAME;
-        layer.bindPopup(stateName);
+    handleBedroomChange(event){
+        this.setState({
+            bedrooms: event.target.value,
+        })
+    }
 
-        layer.on({
-            click: this.onStateClick,
-            mouseover: this.onStateMouseover,
-            mouseout: this.onStateMouseout,
+    handleBathroomChange(event){
+        this.setState({
+            bathrooms: event.target.value,
+        })
+    }
+
+    handleCityChange(event){
+        this.setState({
+            city: event.target.value,
+        })
+    }
+
+    handleSqftChange(event){
+        this.setState({
+            sqft: event.target.value,
         })
     }
 
     render(){
-
-        var stateStyle = {
-            color: '#2e2e2e',
-            weight: .5,
-            fillColor: "#2e2e2e",
-            fillOpacity: 0,
+        const style={
+            width:'100vw',
+            height:'calc(100vh)',
+            backgroundImage: "url(" + BackgroundImage + ")",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center center',
+            backgroundRepeat:'no-repeat',
         }
 
         return(
-            <div>
-                <MyNavbar/>
-                <div style={{margin:'20px 100px', fontFamily:'Raleway'}}>
-                    <Map style={{height:'calc(100vh - 200px)', width:'45vw', float:'left', border:'1px solid black'}} zoom={4} center={[37,-98]}>
-                        <LayersControl position="topright">
-
-                            <LayersControl.BaseLayer name="Satellite">
-                                <TileLayer
-                                attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}.png"
-                                />
-                            </LayersControl.BaseLayer>
-
-                            <LayersControl.BaseLayer name="Street">
-                                <TileLayer
-                                attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                />
-                            </LayersControl.BaseLayer>
-
-                            <LayersControl.BaseLayer name="Topology" checked>
-                                <TileLayer
-                                attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}.png"
-                                />
-                            </LayersControl.BaseLayer>
-
-                            <LayersControl.BaseLayer name="Terrain">
-                                <TileLayer
-                                attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}.png"
-                                />
-                            </LayersControl.BaseLayer>
-
-                            <LayersControl.BaseLayer name="Dark">
-                                <TileLayer
-                                attribution='&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-                                url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
-                                />
-                            </LayersControl.BaseLayer>
-
-                            <LayersControl.Overlay name="Show Counties" checked>
-                                <GeoJSON data={states.features}  style={stateStyle} onEachFeature={this.onEachState}/>
-                            </LayersControl.Overlay>
-
-                        </LayersControl>
-                    </Map>
-                </div>
-                <div style={{float:'right', width:'45vw', paddingLeft:'30px'}}>
-                    {
-                        this.state.currentState === null ?
-                        <h4>Select a state to begin.</h4>
-                        :
-                        <h4>{this.state.currentState}</h4>
-                    }
+            <div style={style}>
+                <MyNavbar color='white'/>
+                <div style={{width:'45vw', margin:'5% auto 0 auto', backgroundColor:'white', borderRadius:'12px', padding:'30px'}}>
+                    <h4>Prediction: {this.state.prediction}</h4>
+                    <hr/>
+                    <div id='myLocationForm'>
+                        <h3>{this.state.currentCity}, {this.state.currentState} <p style={{color:'grey', fontSize:'16px'}}>({this.state.latitude}, {this.state.longitude})</p></h3>
+                        {/* <p>Your location:({this.state.latitude}, {this.state.longitude})</p> */}
+                    </div>
+                    <br/>
+                    <div>
+                        <form onSubmit={this.getPrediction}>
+                            <div className="form-group row">
+                                <label className="col-sm-2 col-form-label">State</label>
+                                <div className="col-sm-10">
+                                    <StateSelector parentCallback={this.changeState}/>
+                                </div>
+                            </div>
+                            <div className="form-group row">
+                                <label className="col-sm-2 col-form-label">City</label>
+                                <div className="col-sm-10">
+                                    <input type="text" className="form-control" id="cityInput" placeholder="San Jose" required/>
+                                </div>
+                            </div>
+                            <div className="form-group row">
+                                <label className="col-sm-2 col-form-label">Bedrooms</label>
+                                <div className="col-sm-10">
+                                    <input type="number" className="form-control" id="bedroomInput" placeholder="3" min='1' required/>
+                                </div>
+                            </div>
+                            <div className="form-group row">
+                                <label className="col-sm-2 col-form-label">Bathrooms</label>
+                                <div className="col-sm-10">
+                                    <input type="number" className="form-control" id="bathroomInput" placeholder="2" min='1' required/>
+                                </div>
+                            </div>
+                            <div className="form-group row">
+                                <label className="col-sm-2 col-form-label">Sqft.</label>
+                                <div className="col-sm-10">
+                                    <input type="number" className="form-control" id="sqftInput" placeholder="1200" min='1' required/>
+                                </div>
+                            </div>
+                            <br/>
+                            <button type='submit' className="btn btn-primary">Get Prediction</button>
+                        </form>
+                    </div>
                 </div>
             </div>
         );
